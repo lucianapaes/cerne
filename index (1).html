@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="apple-mobile-web-app-title" content="Cerne" />
+<meta name="theme-color" content="#111111" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon-180.png" />
+<link rel="icon" href="icon-192.png" />
+<title>Cerne — Treino</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: #FFFFFF; overscroll-behavior-y: contain; }
+  input { -webkit-appearance: none; }
+  * { -webkit-tap-highlight-color: transparent; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/plain" id="app-source">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ---------- armazenamento local (persiste no navegador deste domínio) ----------
+const storage = {
+  get: async (k) => {
+    const v = localStorage.getItem(k);
+    return v === null ? null : { key: k, value: v };
+  },
+  set: async (k, v) => {
+    localStorage.setItem(k, v);
+    return { key: k, value: v };
+  },
+};
+
+// ---------- ícones inline ----------
+const Ic = ({ children, size = 16, color = "currentColor", strokeWidth = 2, style, className, ...rest }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth}
+       strokeLinecap="round" strokeLinejoin="round" style={style} className={className} {...rest}>{children}</svg>
+);
+const Check = (p) => <Ic {...p}><polyline points="20 6 9 17 4 12" /></Ic>;
+const ChevronDown = (p) => <Ic {...p}><polyline points="6 9 12 15 18 9" /></Ic>;
+const ChevronLeft = (p) => <Ic {...p}><polyline points="15 18 9 12 15 6" /></Ic>;
+const ChevronRight = (p) => <Ic {...p}><polyline points="9 18 15 12 9 6" /></Ic>;
+const Calendar = (p) => <Ic {...p}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></Ic>;
+const Play = ({ size = 16, color = "#fff" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3" fill={color} /></svg>
+);
+const Link2 = (p) => <Ic {...p}><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></Ic>;
+
+// ---------- design tokens ----------
+const C = {
+  bg: "#FFFFFF", surface: "#FAFAFA", surfaceAlt: "#F0F0F0",
+  ink: "#111111", inkMuted: "#6B6B6B", inkFaint: "#A3A3A3",
+  hairline: "#E3E3E3", hairlineStrong: "#D0D0D0",
+};
+const FUI = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif";
+const FMONO = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
+const SAFE_TOP = "calc(env(safe-area-inset-top) + 20px)";
+const SAFE_BOTTOM = "calc(env(safe-area-inset-bottom) + 12px)";
+const SAFE_TIMER_BOTTOM = "calc(env(safe-area-inset-bottom) + 84px)";
+
+const ANIM_CSS = `
+@keyframes fadeSlideIn { from { opacity:0.4; transform: translateY(4px);} to { opacity:1; transform: translateY(0);} }
+.screen-enter { animation: fadeSlideIn 0.18s ease-out; }
+@keyframes popIn { 0% { transform: scale(0.5); opacity:0;} 65% { transform: scale(1.12); opacity:1;} 100% { transform: scale(1);} }
+.pop-in { animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+.tap { transition: transform 0.15s ease; }
+.tap:active { transform: scale(0.96); }
+`;
+
+const ORDER = ["MMII", "MMSS", "CORE"];
+const FICHA_LABEL = { MMII: "MMII", MMSS: "MMSS", CORE: "Core + Glúteo" };
+const FICHA_SUB = { MMII: "Membros inferiores", MMSS: "Membros superiores", CORE: "Estabilização + glúteo (em casa)" };
+const FICHA_LETTER = { MMII: "P", MMSS: "S", CORE: "C" };
+
+// ---------- dados dos treinos ----------
+// blocos "solo": exercício isolado, check + descanso por série
+// blocos "circuit": 2-3 exercícios em sequência, SEM descanso entre eles —
+// só descansa depois de completar a volta inteira (todos os exercícios daquele round)
+const DATA = {
+  MMII: [
+    { kind: "solo", pausa: "0-40s", ex: { id: "afundo", nome: "Afundo no caixote", tipo: "peso", sets: 4, alvo: '12 + 1"',
+      como: "Um pé apoiado no caixote atrás, desça o joelho da frente quase até o chão. Tronco ereto, joelho da frente não passa da ponta do pé." } },
+    { kind: "solo", pausa: "40-60s", ex: { id: "hipthrust", nome: "Hip Thrust barbell", tipo: "peso", sets: 3, alvo: "10",
+      como: "Costas apoiadas no banco, barra sobre o quadril, pés no chão na largura do quadril. Empurre o quadril até formar linha reta dos ombros aos joelhos, aperte o glúteo no topo. Não hiperestenda a lombar." } },
+    { kind: "circuit", label: "Dupla 1", pausa: "40s", sets: 4,
+      exs: [
+        { id: "legpress", nome: "Leg press horizontal", tipo: "peso", alvo: "8-12",
+          como: "Pés na largura dos ombros na plataforma. Desça controlado até 90° de joelho, empurre sem travar o joelho no topo." },
+        { id: "agachsumo", nome: "Agachamento sumo", tipo: "peso", alvo: "15-20",
+          como: "Pés bem afastados, pontas voltadas pra fora. Desça com tronco ereto, joelho na direção do pé, sem cair pra dentro." },
+      ] },
+    { kind: "solo", pausa: "60s", ex: { id: "cadext", nome: "Cadeira extensora", tipo: "peso", sets: 3, alvo: "10 + falha", dica: "drop-set: -20% da carga na falha",
+      como: "Encosto ajustado pro joelho alinhado ao eixo da máquina. Estenda quase até travar, controle a descida." } },
+    { kind: "solo", pausa: "40s", ex: { id: "stiffuni", nome: "Stiff-leg unilateral (halteres)", tipo: "peso", sets: 3, alvo: "10",
+      como: "Halteres nas mãos, perna de apoio levemente flexionada. Incline o tronco à frente levando o quadril pra trás, coluna reta, a outra perna estende atrás como contrapeso. Volta controlada." } },
+    { kind: "circuit", label: "Dupla 2", pausa: "40-60s", sets: 3,
+      exs: [
+        { id: "cadflex", nome: "Cadeira flexora", tipo: "peso", alvo: "10 + falha", dica: "drop-set: -20% da carga na falha",
+          como: "Flexione o joelho trazendo o calcanhar em direção ao glúteo. Controle a volta, não deixe o peso cair." },
+        { id: "gemeos", nome: "Gêmeos em pé", tipo: "peso", alvo: '15+15"',
+          como: "Suba na ponta dos pés o máximo possível, pausa no topo, desça até alongar bem a panturrilha." },
+      ] },
+    { kind: "solo", pausa: "0-40s", ex: { id: "adutor", nome: "Adutor com elástico no espaldar", tipo: "banda", sets: 3, alvo: "12/lado",
+      como: "Elástico preso no tornozelo, de lado pro ponto de fixação. Puxe a perna pra dentro cruzando a linha do corpo, controlado." } },
+    { kind: "solo", pausa: "40s", ex: { id: "abducao", nome: "Abdução em pé no cabo", tipo: "peso", sets: 3, alvo: "15-20",
+      como: "Cabo preso no tornozelo, de lado pro aparelho. Afaste a perna pro lado sem inclinar o tronco, volta controlada." } },
+  ],
+  MMSS: [
+    { kind: "circuit", label: "Circuito 1", pausa: "40s", sets: 4,
+      exs: [
+        { id: "pulldown", nome: "Pull down", tipo: "peso", alvo: "8-12",
+          como: "Pegada aberta na barra, puxe até chegar perto do peito, cotovelos apontando pra baixo. Não jogue o tronco pra trás." },
+        { id: "remcross", nome: "Remada no cross com corda", tipo: "peso", alvo: "8-12",
+          como: "Segure a corda com as duas mãos, puxe em direção ao abdômen, cotovelos rente ao corpo, aperte as escápulas no final." },
+        { id: "elevlat", nome: "Elevação lateral", tipo: "peso", alvo: "8-12",
+          como: "Halteres ao lado do corpo, eleve até a altura do ombro, cotovelo levemente flexionado, sem embalo." },
+      ] },
+    { kind: "circuit", label: "Circuito 2", pausa: "40s", sets: 3,
+      exs: [
+        { id: "supinodb", nome: "Supino com dumbbell", tipo: "peso", alvo: "8-12",
+          como: "Deitado no banco, halteres na altura do peito, empurre sem travar o cotovelo, desça controlado." },
+        { id: "testahalter", nome: "Testa halter", tipo: "peso", alvo: "8-12",
+          como: "Deitado, halteres esticados acima do peito, flexione só o cotovelo levando o peso em direção à testa, braço fixo." },
+        { id: "desenvpe", nome: "Desenvolvimento em pé", tipo: "peso", alvo: "8-12",
+          como: "Halteres na altura dos ombros, empurre até quase estender o cotovelo, sem arquear a lombar." },
+      ] },
+  ],
+  CORE: [
+    { kind: "solo", pausa: "40s", ex: { id: "elevquadril", nome: "Elevação de quadril caixote", tipo: "peso", sets: 4, alvo: "8-12", dica: "coluna reta, core ativado",
+      como: "Costas no chão, pés apoiados no caixote, eleve o quadril mantendo a coluna reta, sem hiperestender no topo." } },
+    { kind: "solo", pausa: "0-40s", ex: { id: "abducaomini", nome: "Abdução deitado (mini band)", tipo: "banda", sets: 4, alvo: '10+10"',
+      como: "Deitado de lado, mini band acima dos joelhos, joelhos flexionados. Abra o joelho de cima sem girar o quadril pra trás." } },
+    { kind: "solo", pausa: "30s", ex: { id: "perdigueiro", nome: "Perdigueiro (bird dog)", tipo: "tempo", sets: 4, alvo: '10+1"', dica: "com miniband nos pés",
+      como: "Em quatro apoios, estenda o braço e a perna opostos ao mesmo tempo, coluna neutra, sem deixar o quadril girar." } },
+    { kind: "solo", pausa: "0-40s", ex: { id: "fortglut", nome: "Fortalecimento de glúteo (peso corporal)", tipo: "tempo", sets: 3, alvo: "3 mov. x10 dir + 3 mov. x10 esq",
+      como: "Deitada de lado, perna de baixo dobrada de apoio, perna de cima esticada. Faz as 3 variações (10 reps cada) do lado direito, depois vira e faz as mesmas 3 do lado esquerdo — isso conta como 1 série. Variações: (1) girar a perna esticada pra frente e pra trás, (2) subir e descer a perna esticada (abdução), (3) 'joelhada' — levar o joelho em direção ao peito e esticar de novo." } },
+    { kind: "solo", pausa: "40s", ex: { id: "extlombar", nome: "Extensão lombar solo (mãos na cabeça)", tipo: "tempo", sets: 4, alvo: "30-40s", holdSeg: 35,
+      como: "Deitada de bruços, mãos atrás da cabeça, eleve o tronco só até a lombar ficar neutra — não hiperestender. Segure isométrico." } },
+    { kind: "solo", pausa: "30s", ex: { id: "pallof", nome: "Pallof Press", tipo: "peso", sets: 3, alvo: '10"/lado', dica: "em pé, no cross", holdSeg: 10,
+      como: "De lado pro cabo/elástico na altura do peito, empurre o peso pra frente resistindo à rotação do tronco, sem girar." } },
+  ],
+};
+
+function parsePausa(p) {
+  const nums = (p.match(/\d+/g) || []).map(Number);
+  return nums.length ? Math.max(...nums) : 30;
+}
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function daysSince(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  return Math.round((now - d) / 86400000);
+}
+function lastSessionDate(sessions, ficha) {
+  const filtered = sessions.filter((s) => s.ficha === ficha);
+  return filtered.length ? filtered[filtered.length - 1].date : null;
+}
+function nextFicha(sessions) {
+  if (!sessions.length) return ORDER[0];
+  const last = sessions[sessions.length - 1].ficha;
+  return ORDER[(ORDER.indexOf(last) + 1) % ORDER.length];
+}
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = "sine"; o.frequency.value = 720;
+    g.gain.setValueAtTime(0.12, ctx.currentTime);
+    o.start(); o.stop(ctx.currentTime + 0.35);
+  } catch (e) {}
+  if (navigator.vibrate) navigator.vibrate([200, 80, 200]);
+}
+
+function TreinoApp() {
+  const [view, setView] = useState("home");
+  const [ficha, setFicha] = useState("MMII");
+  const [sessions, setSessions] = useState([]);
+  const [exerciseLog, setExerciseLog] = useState({});
+  const [inputs, setInputs] = useState({});
+  const [setsDone, setSetsDone] = useState({});
+  const [expanded, setExpanded] = useState({});
+  const [justMarked, setJustMarked] = useState(false);
+  const [timer, setTimer] = useState(null);
+  const intervalRef = useRef(null);
+
+  useEffect(() => {
+    if (!timer) return;
+    intervalRef.current = setInterval(() => {
+      setTimer((t) => {
+        if (!t) return t;
+        if (t.remaining <= 1) { clearInterval(intervalRef.current); beep(); return null; }
+        return { ...t, remaining: t.remaining - 1 };
+      });
+    }, 1000);
+    return () => clearInterval(intervalRef.current);
+  }, [timer?.total]);
+
+  const startTimer = (seconds, label) => {
+    clearInterval(intervalRef.current);
+    setTimer({ total: seconds, remaining: seconds, label });
+  };
+
+  useEffect(() => {
+    (async () => {
+      try { const s = await storage.get("sessions"); if (s?.value) setSessions(JSON.parse(s.value)); } catch (e) {}
+      try { const l = await storage.get("exercise-log"); if (l?.value) setExerciseLog(JSON.parse(l.value)); } catch (e) {}
+    })();
+  }, []);
+
+  const openFicha = (f) => {
+    setFicha(f); setInputs({}); setSetsDone({}); setExpanded({}); setView("workout");
+  };
+
+  const setField = (exId, setIdx, key, value) => {
+    setInputs((prev) => {
+      const arr = prev[exId] ? [...prev[exId]] : [];
+      arr[setIdx] = { ...(arr[setIdx] || {}), [key]: value };
+      return { ...prev, [exId]: arr };
+    });
+  };
+
+  const toggleExpand = (exId) => setExpanded((p) => ({ ...p, [exId]: !p[exId] }));
+  const lastLog = (exId) => { const h = exerciseLog[exId]; return h && h.length ? h[h.length - 1] : null; };
+
+  const allExercisesFlat = () => {
+    const list = [];
+    DATA[ficha].forEach((block) => {
+      if (block.kind === "solo") list.push(block.ex);
+      else block.exs.forEach((e) => list.push(e));
+    });
+    return list;
+  };
+
+  const marcarFeito = useCallback(async () => {
+    const today = todayISO();
+    const newSessions = [...sessions, { ficha, date: today }];
+    setSessions(newSessions);
+    const newLog = { ...exerciseLog };
+    allExercisesFlat().forEach((ex) => {
+      const setsInput = inputs[ex.id];
+      if (!setsInput) return;
+      const key = ex.tipo === "tempo" ? "seg" : "carga";
+      const filled = setsInput.filter((s) => s && s[key]);
+      if (!filled.length) return;
+      newLog[ex.id] = [...(newLog[ex.id] || []), { date: today, sets: filled }];
+    });
+    setExerciseLog(newLog);
+    try {
+      await storage.set("sessions", JSON.stringify(newSessions));
+      await storage.set("exercise-log", JSON.stringify(newLog));
+    } catch (e) {}
+    setJustMarked(true);
+    setTimeout(() => { setJustMarked(false); setView("home"); }, 750);
+  }, [ficha, sessions, exerciseLog, inputs]);
+
+  // ---------- HOME ----------
+  if (view === "home") {
+    const next = nextFicha(sessions);
+    return (
+      <div key="home" style={{ background: C.bg, color: C.ink, fontFamily: FUI, minHeight: "100vh" }} className="w-full screen-enter">
+        <style>{ANIM_CSS}</style>
+        <div style={{ borderBottom: `1px solid ${C.hairline}`, paddingTop: SAFE_TOP }} className="px-4 pb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div style={{ background: C.ink, color: "#FFFFFF", fontFamily: FMONO, fontWeight: 700, fontSize: 15 }} className="w-8 h-8 rounded-full flex items-center justify-center shrink-0">C</div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em" }}>CERNE</div>
+              <div style={{ color: C.inkFaint, fontSize: 10.5, letterSpacing: "0.05em" }} className="uppercase -mt-0.5">Qual treino?</div>
+            </div>
+          </div>
+          <button onClick={() => setView("history")} style={{ border: `1px solid ${C.hairlineStrong}`, boxShadow: "0 1px 2px rgba(17,17,17,0.04)" }}
+            className="tap w-10 h-10 rounded-full flex items-center justify-center" aria-label="histórico">
+            <Calendar size={17} color={C.ink} strokeWidth={1.8} />
+          </button>
+        </div>
+
+        <div className="px-4 pt-4 flex flex-col gap-3">
+          {ORDER.map((f) => {
+            const last = lastSessionDate(sessions, f);
+            const dias = last !== null ? daysSince(last) : null;
+            const isNext = f === next;
+            return (
+              <button key={f} onClick={() => openFicha(f)}
+                style={{
+                  background: C.bg, border: `1px solid ${isNext ? C.ink : C.hairline}`,
+                  boxShadow: isNext ? "0 2px 4px rgba(17,17,17,0.05), 0 10px 24px rgba(17,17,17,0.06)" : "0 1px 2px rgba(17,17,17,0.03), 0 6px 16px rgba(17,17,17,0.035)",
+                  textAlign: "left",
+                }}
+                className="tap rounded-2xl p-4 flex items-center gap-3.5">
+                <div style={{ background: isNext ? C.ink : C.surfaceAlt, color: isNext ? "#FFFFFF" : C.inkMuted, fontFamily: FMONO, fontWeight: 700, fontSize: 15 }}
+                  className="w-11 h-11 rounded-full flex items-center justify-center shrink-0">
+                  {FICHA_LETTER[f]}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <div style={{ fontSize: 16.5, fontWeight: 700, letterSpacing: "-0.01em" }}>{FICHA_LABEL[f]}</div>
+                    {isNext && (
+                      <div style={{ background: C.ink, color: "#FFFFFF", fontSize: 9.5, letterSpacing: "0.04em" }} className="uppercase font-semibold px-2 py-0.5 rounded-full">Próximo</div>
+                    )}
+                  </div>
+                  <div style={{ color: C.inkMuted, fontSize: 12.5 }} className="mt-0.5">{FICHA_SUB[f]}</div>
+                  <div style={{ color: C.inkFaint, fontFamily: FMONO, fontSize: 11.5 }} className="mt-1.5">
+                    {dias === null ? "nunca feito" : dias === 0 ? "feito hoje" : dias === 1 ? "feito há 1 dia" : `feito há ${dias} dias`}
+                  </div>
+                </div>
+                <ChevronRight size={16} color={C.inkFaint} className="shrink-0" />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- HISTORY ----------
+  if (view === "history") {
+    const now = new Date();
+    const year = now.getFullYear(), month = now.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const startWeekday = firstDay.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const cells = [];
+    for (let i = 0; i < startWeekday; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+    const sessionsByDate = {};
+    sessions.forEach((s) => { sessionsByDate[s.date] = sessionsByDate[s.date] || []; sessionsByDate[s.date].push(s.ficha); });
+    const recent = [...sessions].reverse().slice(0, 12);
+    const monthName = firstDay.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+    return (
+      <div key="history" style={{ background: C.bg, color: C.ink, fontFamily: FUI, minHeight: "100vh" }} className="w-full screen-enter">
+        <style>{ANIM_CSS}</style>
+        <div style={{ borderBottom: `1px solid ${C.hairline}`, paddingTop: SAFE_TOP }} className="px-4 pb-4 flex items-center gap-3">
+          <button onClick={() => setView("home")} className="tap w-8 h-8 flex items-center justify-center -ml-1">
+            <ChevronLeft size={20} color={C.ink} />
+          </button>
+          <div style={{ fontSize: 19, fontWeight: 700 }}>Histórico</div>
+        </div>
+        <div className="px-4 pt-4 pb-8">
+          <div style={{ color: C.inkMuted, fontSize: 12.5 }} className="capitalize mb-2">{monthName}</div>
+          <div className="grid grid-cols-7 gap-1">
+            {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
+              <div key={i} style={{ color: C.inkFaint, fontSize: 10.5 }} className="text-center font-medium">{d}</div>
+            ))}
+            {cells.map((d, i) => {
+              if (d === null) return <div key={i} />;
+              const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+              const done = sessionsByDate[dateStr];
+              const isToday = dateStr === todayISO();
+              return (
+                <div key={i} style={{ background: done ? C.ink : "transparent", color: done ? "#FFFFFF" : C.ink, border: isToday && !done ? `1.5px solid ${C.ink}` : `1px solid ${C.hairline}` }}
+                  className="aspect-square rounded-lg flex items-center justify-center text-xs font-medium"
+                  title={done ? done.map((f) => FICHA_LABEL[f]).join(", ") : ""}>
+                  {d}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ borderTop: `1px solid ${C.hairline}` }} className="mt-6 pt-4">
+            <div style={{ color: C.inkFaint, fontSize: 11, letterSpacing: "0.06em" }} className="uppercase font-medium mb-2">Sessões recentes</div>
+            {recent.length === 0 && <div style={{ color: C.inkFaint, fontSize: 13 }}>Nenhum treino marcado ainda.</div>}
+            <div className="flex flex-col">
+              {recent.map((s, i) => {
+                const d = new Date(s.date + "T00:00:00");
+                const label = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+                return (
+                  <div key={i} style={{ borderBottom: `1px solid ${C.hairline}` }} className="flex items-center justify-between py-2.5">
+                    <div style={{ fontFamily: FMONO, fontSize: 13, color: C.inkMuted }}>{label}</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600 }}>{FICHA_LABEL[s.ficha]}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- WORKOUT ----------
+  const blocks = DATA[ficha];
+  let runningIdx = 0;
+
+  return (
+    <div key="workout" style={{ background: C.bg, color: C.ink, fontFamily: FUI, minHeight: "100vh" }} className="w-full screen-enter" >
+      <style>{ANIM_CSS}</style>
+      <div style={{ borderBottom: `1px solid ${C.hairline}`, background: C.bg, boxShadow: "0 1px 0 rgba(17,17,17,0.02)", paddingTop: SAFE_TOP }}
+        className="px-4 pb-3 sticky top-0 z-20 flex items-center gap-3">
+        <button onClick={() => setView("home")} className="tap w-8 h-8 flex items-center justify-center -ml-1 shrink-0">
+          <ChevronLeft size={20} color={C.ink} />
+        </button>
+        <div>
+          <div style={{ color: C.inkFaint, fontSize: 11, letterSpacing: "0.06em" }} className="uppercase font-medium">Cerne</div>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{FICHA_LABEL[ficha]}</div>
+        </div>
+      </div>
+
+      <div className="px-4 pt-4 flex flex-col gap-2.5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 96px)" }}>
+        {blocks.map((block, bi) => {
+          if (block.kind === "solo") {
+            const ex = block.ex;
+            const idx = runningIdx++;
+            const last = lastLog(ex.id);
+            const isOpen = !!expanded[ex.id];
+            const pausaSeg = parsePausa(block.pausa);
+            const key = ex.tipo === "tempo" ? "seg" : "carga";
+            const unit = ex.tipo === "tempo" ? "seg" : ex.tipo === "banda" ? "nível" : "kg";
+            return (
+              <div key={ex.id} style={{ background: C.bg, border: `1px solid ${C.hairline}`, boxShadow: "0 1px 2px rgba(17,17,17,0.03), 0 6px 16px rgba(17,17,17,0.035)" }} className="rounded-2xl p-4">
+                <div className="flex items-start gap-3">
+                  <div style={{ background: C.surfaceAlt, color: C.inkMuted, fontFamily: FMONO, fontSize: 12, fontWeight: 600 }} className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                    {idx + 1}
+                  </div>
+                  <button onClick={() => toggleExpand(ex.id)} className="tap flex-1 text-left min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <div style={{ fontSize: 15.5, fontWeight: 650, letterSpacing: "-0.01em" }}>{ex.nome}</div>
+                      <ChevronDown size={13} color={C.inkFaint} style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }} />
+                    </div>
+                    <div style={{ color: C.inkMuted, fontFamily: FMONO, fontSize: 12.5 }} className="mt-0.5">{ex.sets}x {ex.alvo}</div>
+                    {ex.dica && <div style={{ color: C.inkFaint, fontSize: 11.5 }} className="mt-1">{ex.dica}</div>}
+                    {isOpen && ex.como && <div style={{ color: C.inkMuted, fontSize: 12.5, lineHeight: 1.5, borderTop: `1px solid ${C.hairline}` }} className="mt-2 pt-2">{ex.como}</div>}
+                  </button>
+                  {ex.holdSeg && (
+                    <button onClick={() => startTimer(ex.holdSeg, `${ex.nome} · segurar`)} style={{ background: C.ink }}
+                      className="tap w-9 h-9 rounded-full flex items-center justify-center shrink-0" aria-label={`iniciar timer de ${ex.holdSeg}s`}>
+                      <Play size={13} color="#FFFFFF" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-3 flex flex-col gap-1.5">
+                  {Array.from({ length: ex.sets }).map((_, i) => {
+                    const lastVal = last?.sets?.[i]?.[key];
+                    const setKey = `${ex.id}-${i}`;
+                    const isSetDone = !!setsDone[setKey];
+                    return (
+                      <div key={i} className="flex items-center gap-2">
+                        <div style={{ color: C.inkFaint, fontFamily: FMONO, fontSize: 12, width: 16 }}>{i + 1}</div>
+                        <input
+                          inputMode={ex.tipo === "banda" ? "text" : ex.tipo === "tempo" ? "numeric" : "decimal"}
+                          placeholder={lastVal ? `${lastVal}${ex.tipo === "tempo" ? "s" : ""} (última)` : unit}
+                          value={inputs[ex.id]?.[i]?.[key] || ""}
+                          onChange={(e) => setField(ex.id, i, key, e.target.value)}
+                          style={{ background: isSetDone ? C.surfaceAlt : C.surface, color: isSetDone ? C.inkFaint : C.ink, fontFamily: FMONO, border: `1px solid ${C.hairline}` }}
+                          className="flex-1 rounded-lg px-3 py-2 text-sm outline-none"
+                        />
+                        <button
+                          onClick={() => {
+                            setSetsDone((prev) => {
+                              const now = !prev[setKey];
+                              if (now) startTimer(pausaSeg, `${ex.nome} · série ${i + 1}`);
+                              return { ...prev, [setKey]: now };
+                            });
+                          }}
+                          style={{ background: isSetDone ? C.ink : "transparent", border: `1.5px solid ${isSetDone ? C.ink : C.hairlineStrong}` }}
+                          className="tap w-8 h-8 rounded-full flex items-center justify-center shrink-0" aria-label="marcar série e iniciar descanso">
+                          {isSetDone && <Check size={14} color="#FFFFFF" strokeWidth={3} />}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          }
+
+          const startIdx = runningIdx;
+          runningIdx += block.exs.length;
+          const pausaSeg = parsePausa(block.pausa);
+          return (
+            <div key={block.label} style={{ background: C.bg, border: `1px solid ${C.hairlineStrong}`, boxShadow: "0 1px 2px rgba(17,17,17,0.03), 0 6px 16px rgba(17,17,17,0.035)" }} className="rounded-2xl p-4">
+              <div className="flex items-center gap-1.5 mb-2.5">
+                <Link2 size={12} color={C.inkMuted} />
+                <div style={{ color: C.inkMuted, fontSize: 10.5, letterSpacing: "0.08em" }} className="uppercase font-semibold">{block.label} · circuito, sem descanso entre exercícios</div>
+              </div>
+
+              <div className="flex flex-col gap-2.5 mb-3">
+                {block.exs.map((ex, ei) => {
+                  const idx = startIdx + ei;
+                  const isOpen = !!expanded[ex.id];
+                  return (
+                    <button key={ex.id} onClick={() => toggleExpand(ex.id)} className="tap text-left flex items-start gap-2.5">
+                      <div style={{ background: C.surfaceAlt, color: C.inkMuted, fontFamily: FMONO, fontSize: 11.5, fontWeight: 600 }} className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                        {idx + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <div style={{ fontSize: 14.5, fontWeight: 620, letterSpacing: "-0.01em" }}>{ex.nome}</div>
+                          <ChevronDown size={12} color={C.inkFaint} style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }} />
+                        </div>
+                        <div style={{ color: C.inkMuted, fontFamily: FMONO, fontSize: 12 }} className="mt-0.5">{block.sets}x {ex.alvo}</div>
+                        {ex.dica && <div style={{ color: C.inkFaint, fontSize: 11 }} className="mt-0.5">{ex.dica}</div>}
+                        {isOpen && ex.como && <div style={{ color: C.inkMuted, fontSize: 12, lineHeight: 1.5, borderTop: `1px solid ${C.hairline}` }} className="mt-1.5 pt-1.5">{ex.como}</div>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ borderTop: `1px solid ${C.hairline}` }} className="pt-3 flex flex-col gap-2">
+                {Array.from({ length: block.sets }).map((_, round) => {
+                  const roundKey = `${block.label}-round-${round}`;
+                  const isRoundDone = !!setsDone[roundKey];
+                  return (
+                    <div key={round} style={{ background: isRoundDone ? C.surfaceAlt : C.surface, border: `1px solid ${C.hairline}` }} className="rounded-xl p-2.5">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div style={{ color: C.inkFaint, fontFamily: FMONO, fontSize: 11 }}>Volta {round + 1}</div>
+                        <button
+                          onClick={() => {
+                            setSetsDone((prev) => {
+                              const now = !prev[roundKey];
+                              if (now) startTimer(pausaSeg, `${block.label} · volta ${round + 1}`);
+                              return { ...prev, [roundKey]: now };
+                            });
+                          }}
+                          style={{ background: isRoundDone ? C.ink : "transparent", border: `1.5px solid ${isRoundDone ? C.ink : C.hairlineStrong}` }}
+                          className="tap w-7 h-7 rounded-full flex items-center justify-center shrink-0" aria-label="marcar volta e iniciar descanso">
+                          {isRoundDone && <Check size={13} color="#FFFFFF" strokeWidth={3} />}
+                        </button>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {block.exs.map((ex) => {
+                          const key = ex.tipo === "tempo" ? "seg" : "carga";
+                          const unit = ex.tipo === "tempo" ? "seg" : ex.tipo === "banda" ? "nível" : "kg";
+                          const last = lastLog(ex.id);
+                          const lastVal = last?.sets?.[round]?.[key];
+                          return (
+                            <div key={ex.id} className="flex items-center gap-2">
+                              <div style={{ color: C.inkFaint, fontSize: 10.5, width: 62, flexShrink: 0 }} className="truncate">{ex.nome}</div>
+                              <input
+                                inputMode={ex.tipo === "banda" ? "text" : ex.tipo === "tempo" ? "numeric" : "decimal"}
+                                placeholder={lastVal ? `${lastVal}${ex.tipo === "tempo" ? "s" : ""} (última)` : unit}
+                                value={inputs[ex.id]?.[round]?.[key] || ""}
+                                onChange={(e) => setField(ex.id, round, key, e.target.value)}
+                                style={{ background: "#fff", color: isRoundDone ? C.inkFaint : C.ink, fontFamily: FMONO, border: `1px solid ${C.hairline}` }}
+                                className="flex-1 rounded-lg px-2.5 py-1.5 text-xs outline-none"
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {timer && (() => {
+        const R = 24, CIRC = 2 * Math.PI * R;
+        const offset = CIRC * (1 - timer.remaining / timer.total);
+        return (
+          <div className="pop-in fixed left-3 right-3 z-30" style={{ bottom: SAFE_TIMER_BOTTOM }}>
+            <div style={{ background: C.ink, color: "#FFFFFF" }} className="rounded-xl px-4 py-3 flex items-center justify-between shadow-lg">
+              <div className="flex items-center gap-3">
+                <div className="relative w-14 h-14 shrink-0">
+                  <svg width="56" height="56" viewBox="0 0 56 56">
+                    <circle cx="28" cy="28" r={R} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="4" />
+                    <circle cx="28" cy="28" r={R} fill="none" stroke="#FFFFFF" strokeWidth="4" strokeLinecap="round"
+                      strokeDasharray={CIRC} strokeDashoffset={offset}
+                      style={{ transition: "stroke-dashoffset 1s linear", transform: "rotate(-90deg)", transformOrigin: "28px 28px" }} />
+                  </svg>
+                  <div style={{ fontFamily: FMONO, fontSize: 15, fontWeight: 700 }} className="absolute inset-0 flex items-center justify-center">{timer.remaining}</div>
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}>{timer.label}</div>
+              </div>
+              <button onClick={() => { clearInterval(intervalRef.current); setTimer(null); }} style={{ background: "rgba(255,255,255,0.15)" }}
+                className="tap text-xs px-3 py-2 rounded-lg font-semibold">Cancelar</button>
+            </div>
+          </div>
+        );
+      })()}
+
+      <div style={{ background: C.bg, borderTop: `1px solid ${C.hairline}`, paddingBottom: SAFE_BOTTOM }} className="fixed bottom-0 left-0 right-0 px-4 pt-3 z-20">
+        <button onClick={marcarFeito} disabled={justMarked} style={{ background: C.ink, color: "#FFFFFF" }}
+          className="tap w-full rounded-xl py-3 flex items-center justify-center gap-2 font-semibold text-sm">
+          {justMarked ? (
+            <span className="pop-in flex items-center gap-2"><Check size={16} /> Feito</span>
+          ) : (
+            <><Check size={16} /> Marcar como feito</>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<TreinoApp />);
+</script>
+<script>
+  var src = document.getElementById("app-source").textContent;
+  var out = Babel.transform(src, { presets: [["react", { runtime: "classic" }]] }).code;
+  var s = document.createElement("script");
+  s.textContent = out;
+  document.body.appendChild(s);
+</script>
+</body>
+</html>
