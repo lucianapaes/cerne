@@ -86,21 +86,21 @@ const FICHA_LETTER = { MMII: "P", MMSS: "S", CORE: "C" };
 // só descansa depois de completar a volta inteira (todos os exercícios daquele round)
 const DATA = {
   MMII: [
-    { kind: "solo", pausa: "0-40s", ex: { id: "afundo", nome: "Afundo no caixote", tipo: "peso", sets: 4, alvo: '12 + 1"',
-      como: "Um pé apoiado no caixote atrás, desça o joelho da frente quase até o chão. Tronco ereto, joelho da frente não passa da ponta do pé." } },
-    { kind: "solo", pausa: "40-60s", ex: { id: "hipthrust", nome: "Hip Thrust barbell", tipo: "peso", sets: 3, alvo: "10",
+    { kind: "solo", pausa: "0-40s", ex: { id: "afundobulg", nome: "Afundo búlgaro", tipo: "peso", sets: 4, alvo: '10/perna',
+      como: "Pé de trás apoiado num banco atrás de você, desça o joelho da frente quase até o chão. Tronco levemente inclinado à frente, equilíbrio pelo core." } },
+    { kind: "solo", pausa: "40-60s", ex: { id: "elevpelvica", nome: "Elevação pélvica com barra", tipo: "peso", sets: 3, alvo: "10",
       como: "Costas apoiadas no banco, barra sobre o quadril, pés no chão na largura do quadril. Empurre o quadril até formar linha reta dos ombros aos joelhos, aperte o glúteo no topo. Não hiperestenda a lombar." } },
     { kind: "circuit", label: "Dupla 1", pausa: "40s", sets: 4,
       exs: [
         { id: "legpress", nome: "Leg press horizontal", tipo: "peso", alvo: "8-12",
           como: "Pés na largura dos ombros na plataforma. Desça controlado até 90° de joelho, empurre sem travar o joelho no topo." },
-        { id: "agachsumo", nome: "Agachamento sumo", tipo: "peso", alvo: "15-20",
-          como: "Pés bem afastados, pontas voltadas pra fora. Desça com tronco ereto, joelho na direção do pé, sem cair pra dentro." },
+        { id: "agachdesenv", nome: "Agachamento com desenvolvimento", tipo: "peso", alvo: "10-12",
+          como: "Halteres nos ombros, agache mantendo o tronco ereto; ao subir, empurre os halteres acima da cabeça. Movimento composto — prioriza técnica antes de carga." },
       ] },
     { kind: "solo", pausa: "60s", ex: { id: "cadext", nome: "Cadeira extensora", tipo: "peso", sets: 3, alvo: "10 + falha", dica: "drop-set: -20% da carga na falha",
       como: "Encosto ajustado pro joelho alinhado ao eixo da máquina. Estenda quase até travar, controle a descida." } },
-    { kind: "solo", pausa: "40s", ex: { id: "stiffuni", nome: "Stiff-leg unilateral (halteres)", tipo: "peso", sets: 3, alvo: "10",
-      como: "Halteres nas mãos, perna de apoio levemente flexionada. Incline o tronco à frente levando o quadril pra trás, coluna reta, a outra perna estende atrás como contrapeso. Volta controlada." } },
+    { kind: "solo", pausa: "40s", ex: { id: "stiffbi", nome: "Stiff bilateral com barra", tipo: "peso", sets: 3, alvo: "10",
+      como: "Barra à frente do corpo, joelhos levemente flexionados. Incline o tronco à frente levando o quadril pra trás, barra deslizando perto das pernas, coluna sempre reta. Sobe pela contração do glúteo/posterior de coxa." } },
     { kind: "circuit", label: "Dupla 2", pausa: "40-60s", sets: 3,
       exs: [
         { id: "cadflex", nome: "Cadeira flexora", tipo: "peso", alvo: "10 + falha", dica: "drop-set: -20% da carga na falha",
@@ -108,38 +108,40 @@ const DATA = {
         { id: "gemeos", nome: "Gêmeos em pé", tipo: "peso", alvo: '15+15"',
           como: "Suba na ponta dos pés o máximo possível, pausa no topo, desça até alongar bem a panturrilha." },
       ] },
-    { kind: "solo", pausa: "0-40s", ex: { id: "adutor", nome: "Adutor com elástico no espaldar", tipo: "banda", sets: 3, alvo: "12/lado",
-      como: "Elástico preso no tornozelo, de lado pro ponto de fixação. Puxe a perna pra dentro cruzando a linha do corpo, controlado." } },
-    { kind: "solo", pausa: "40s", ex: { id: "abducao", nome: "Abdução em pé no cabo", tipo: "peso", sets: 3, alvo: "15-20",
-      como: "Cabo preso no tornozelo, de lado pro aparelho. Afaste a perna pro lado sem inclinar o tronco, volta controlada." } },
+    { kind: "solo", pausa: "0-40s", ex: { id: "adutoramaq", nome: "Adutora (máquina)", tipo: "peso", sets: 3, alvo: "12-15",
+      como: "Sentada na máquina, joelhos apoiados nas almofadas. Feche as pernas contra a resistência, controle a volta." } },
+    { kind: "solo", pausa: "40s", ex: { id: "abdutoramaq", nome: "Abdutora (máquina)", tipo: "peso", sets: 3, alvo: "12-15",
+      como: "Sentada na máquina, joelhos apoiados nas almofadas. Abra as pernas contra a resistência, controle a volta." } },
   ],
   MMSS: [
     { kind: "circuit", label: "Circuito 1", pausa: "40s", sets: 4,
       exs: [
-        { id: "pulldown", nome: "Pull down", tipo: "peso", alvo: "8-12",
-          como: "Pegada aberta na barra, puxe até chegar perto do peito, cotovelos apontando pra baixo. Não jogue o tronco pra trás." },
-        { id: "remcross", nome: "Remada no cross com corda", tipo: "peso", alvo: "8-12",
-          como: "Segure a corda com as duas mãos, puxe em direção ao abdômen, cotovelos rente ao corpo, aperte as escápulas no final." },
-        { id: "elevlat", nome: "Elevação lateral", tipo: "peso", alvo: "8-12",
-          como: "Halteres ao lado do corpo, eleve até a altura do ombro, cotovelo levemente flexionado, sem embalo." },
+        { id: "puxadaaberta", nome: "Puxada aberta", tipo: "peso", alvo: "8-12",
+          como: "Pegada bem aberta na barra, puxe até chegar perto do peito, cotovelos apontando pra baixo. Não jogue o tronco pra trás." },
+        { id: "remcurvada", nome: "Remada curvada", tipo: "peso", alvo: "8-12",
+          como: "Tronco inclinado à frente cerca de 45°, coluna reta. Puxe a barra/halteres em direção ao abdômen, cotovelos próximos ao corpo." },
+        { id: "elevlatcross", nome: "Elevação lateral no cross", tipo: "peso", alvo: "8-12",
+          como: "Cabo baixo, de lado pro aparelho. Eleve o braço até a altura do ombro, cotovelo levemente flexionado — tensão constante do cabo, diferente do halter." },
       ] },
     { kind: "circuit", label: "Circuito 2", pausa: "40s", sets: 3,
       exs: [
         { id: "supinodb", nome: "Supino com dumbbell", tipo: "peso", alvo: "8-12",
           como: "Deitado no banco, halteres na altura do peito, empurre sem travar o cotovelo, desça controlado." },
-        { id: "testahalter", nome: "Testa halter", tipo: "peso", alvo: "8-12",
-          como: "Deitado, halteres esticados acima do peito, flexione só o cotovelo levando o peso em direção à testa, braço fixo." },
+        { id: "puxadatriceps", nome: "Puxada de tríceps (pulley)", tipo: "peso", alvo: "8-12",
+          como: "Cotovelos fixos ao lado do corpo, empurre a barra/corda pra baixo até estender o cotovelo, controle a volta." },
         { id: "desenvpe", nome: "Desenvolvimento em pé", tipo: "peso", alvo: "8-12",
           como: "Halteres na altura dos ombros, empurre até quase estender o cotovelo, sem arquear a lombar." },
       ] },
+    { kind: "solo", pausa: "40s", ex: { id: "roscamartelo", nome: "Rosca martelo", tipo: "peso", sets: 3, alvo: "10-12",
+      como: "Halteres com pegada neutra (palmas viradas uma pra outra), flexione o cotovelo sem girar o punho. Cotovelos fixos ao lado do corpo." } },
   ],
   CORE: [
     { kind: "solo", pausa: "40s", ex: { id: "elevquadril", nome: "Elevação de quadril caixote", tipo: "peso", sets: 4, alvo: "8-12", dica: "coluna reta, core ativado",
       como: "Costas no chão, pés apoiados no caixote, eleve o quadril mantendo a coluna reta, sem hiperestender no topo." } },
     { kind: "solo", pausa: "0-40s", ex: { id: "abducaomini", nome: "Abdução deitado (mini band)", tipo: "banda", sets: 4, alvo: '10+10"',
       como: "Deitado de lado, mini band acima dos joelhos, joelhos flexionados. Abra o joelho de cima sem girar o quadril pra trás." } },
-    { kind: "solo", pausa: "30s", ex: { id: "perdigueiro", nome: "Perdigueiro (bird dog)", tipo: "tempo", sets: 4, alvo: '10+1"', dica: "com miniband nos pés",
-      como: "Em quatro apoios, estenda o braço e a perna opostos ao mesmo tempo, coluna neutra, sem deixar o quadril girar." } },
+    { kind: "solo", pausa: "30s", ex: { id: "deadbug", nome: "Dead bug", tipo: "tempo", sets: 4, alvo: '10/lado',
+      como: "Deitada de costas, braços e pernas na vertical formando 90°. Estenda um braço e a perna oposta ao mesmo tempo, lombar sempre encostada no chão, sem arquear. Volta e alterna o lado." } },
     { kind: "solo", pausa: "0-40s", ex: { id: "fortglut", nome: "Fortalecimento de glúteo (peso corporal)", tipo: "tempo", sets: 3, alvo: "3 mov. x10 dir + 3 mov. x10 esq",
       como: "Deitada de lado, perna de baixo dobrada de apoio, perna de cima esticada. Faz as 3 variações (10 reps cada) do lado direito, depois vira e faz as mesmas 3 do lado esquerdo — isso conta como 1 série. Variações: (1) girar a perna esticada pra frente e pra trás, (2) subir e descer a perna esticada (abdução), (3) 'joelhada' — levar o joelho em direção ao peito e esticar de novo." } },
     { kind: "solo", pausa: "40s", ex: { id: "extlombar", nome: "Extensão lombar solo (mãos na cabeça)", tipo: "tempo", sets: 4, alvo: "30-40s", holdSeg: 35,
@@ -148,6 +150,9 @@ const DATA = {
       como: "De lado pro cabo/elástico na altura do peito, empurre o peso pra frente resistindo à rotação do tronco, sem girar." } },
   ],
 };
+
+const CYCLE_START = "19/08/2026";
+const CYCLE_END = "19/11/2026";
 
 function parsePausa(p) {
   const nums = (p.match(/\d+/g) || []).map(Number);
@@ -282,7 +287,13 @@ function TreinoApp() {
           </button>
         </div>
 
-        <div className="px-4 pt-4 flex flex-col gap-3">
+        <div className="px-4 pt-3">
+          <div style={{ color: C.inkFaint, fontFamily: FMONO, fontSize: 11.5 }}>
+            Validade do treino: {CYCLE_START} – {CYCLE_END}
+          </div>
+        </div>
+
+        <div className="px-4 pt-3 flex flex-col gap-3">
           {ORDER.map((f) => {
             const last = lastSessionDate(sessions, f);
             const dias = last !== null ? daysSince(last) : null;
